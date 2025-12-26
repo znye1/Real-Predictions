@@ -1,0 +1,34 @@
+{
+    "manifest_version": 3,
+    "name": "Real Predictions",
+    "version": "1.0",
+    "description": "EV Calculator for Real Predictions",
+    "permissions": [
+        "tabs",
+        "storage",
+        "scripting",
+        "activeTab"
+    ],
+    "host_permissions": [
+        "https://realsports.io/*",
+        "https://sportsbook.fanduel.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://realsports.io/*"],
+            "js": ["content_real.js"],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": ["https://sportsbook.fanduel.com/*"],
+            "js": ["content_fd.js"],
+            "run_at": "document_idle"
+        }
+    ]
+}

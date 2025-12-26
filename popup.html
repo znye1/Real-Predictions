@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            width: 350px;
+            padding: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: center;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        .ev-positive {
+            color: green;
+            font-weight: bold;
+        }
+        .ev-negative {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <form id="league-form">
+        <select id="league">
+            <option value="none">Select League</option>
+            <option value="nfl">NFL</option>
+            <option value="nba">NBA</option>
+        </select>
+    </form>
+    <div style="margin-bottom:8px;">
+        Bankroll: 
+        <input
+            id="bankroll"
+            type="number"
+            min="0"
+            step="1"
+            style="width:100px;"
+        />
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>Real %</th>
+                <th>FD Odds</th>
+                <th>EV</th>
+                <th>Fair Odds</th>
+                <th>Stake</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td id="team1">Team 1</td>
+                <td id="output1">Loading...</td>
+                <td id="odds1"></td>
+                <td id="ev1"></td>
+                <td id="fair1"></td>
+                <td id="stake1"></td>
+            </tr>
+            <tr>
+                <td id="team2">Team 2</td>
+                <td id="output2">Loading...</td>
+                <td id="odds2"></td>
+                <td id="ev2"></td>
+                <td id="fair2"></td>
+                <td id="stake2"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div id="pregame"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
