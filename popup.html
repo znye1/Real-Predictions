@@ -1,87 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            width: 350px;
-            padding: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: center;
-        }
-        th {
-            background-color: #f0f0f0;
-        }
-        .ev-positive {
-            color: green;
-            font-weight: bold;
-        }
-        .ev-negative {
-            color: red;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="popup.css" />
 </head>
+
 <body>
-    <form id="league-form">
-        <select id="league">
-            <option value="none">Select League</option>
-            <option value="nfl">NFL</option>
-            <option value="nba">NBA</option>
-        </select>
-    </form>
-    <div style="margin-bottom:8px;">
-        Bankroll: 
-        <input
-            id="bankroll"
-            type="number"
-            min="0"
-            step="1"
-            style="width:100px;"
-        />
+<div class="app">
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <button class="tab active" data-view="predictions" title="Predictions">
+            <svg viewBox="0 0 448 512" width="22" height="22">
+                <path d="M426.1 473.4c3.8 4.2 5.9 9.8 5.9 15.5 0 12.8-10.4 23.1-23.1 23.1L39.1 512c-12.8 0-23.1-10.4-23.1-23.1 0-5.7 2.1-11.2 5.9-15.5l51.7-57.4 300.8 0 51.7 57.4zM224 0c123.7 0 224 100.3 224 224 0 54.8-19.7 105.1-52.5 144L52.5 368C19.7 329.1 0 278.8 0 224 0 100.3 100.3 0 224 0zm87.5 132.3c-2.6-7-12.4-7-15 0l-18.4 49.8-49.8 18.4c-7 2.6-7 12.4 0 15l49.8 18.4 18.4 49.8c2.6 7 12.4 7 15 0l18.4-49.8 49.8-18.4c7-2.6 7-12.4 0-15l-49.8-18.4-18.4-49.8zm-144-48c-2.6-7-12.4-7-15 0l-9.8 26.4-26.4 9.8c-7 2.6-7 12.4 0 15l26.4 9.8 9.8 26.4c2.6 7 12.4 7 15 0l9.8-26.4 26.4-9.8c7-2.6 7-12.4 0-15l-26.4-9.8-9.8-26.4z"/>
+            </svg>
+        </button>
+        <button class="tab" data-view="polls" title="Polls">
+            <svg viewBox="0 0 448 512" width="22" height="22">
+                <path d="M384 31.1H64c-35.35 0-64 28.65-64 63.1v320c0 35.35 28.65 64 64 64h320c35.35 0 64-28.65 64-64v-320C448 60.65 419.3 31.1 384 31.1zM96 144c0-8.875 7.125-16 16-16h128c8.875 0 16 7.125 16 16v32C256 184.9 248.9 192 240 192h-128C103.1 192 96 184.9 96 176V144zM192 368C192 376.9 184.9 384 176 384h-64C103.1 384 96 376.9 96 368v-32C96 327.1 103.1 320 112 320h64C184.9 320 192 327.1 192 336V368zM352 272C352 280.9 344.9 288 336 288h-224C103.1 288 96 280.9 96 272v-32C96 231.1 103.1 224 112 224h224C344.9 224 352 231.1 352 240V272z"/>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- Main content -->
+    <div class="content">
+
+        <!-- PREDICTIONS VIEW -->
+        <section id="predictions" class="view active">
+            <header>
+                <h1>Real Predictions</h1>
+            </header>
+
+            <div class="controls">
+                <span class="bankroll-label">Rax Bankroll:</span>
+                <input
+                    id="bankroll"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Bankroll"
+                />
+
+                <!-- Auto/Manual Switch -->
+                <div class="switch-wrapper">
+                    <label class="switch-label left">Auto</label>
+                    <label class="switch">
+                        <input type="checkbox" id="manual-switch">
+                        <span class="slider"></span>
+                    </label>
+                    <label class="switch-label right">Manual</label>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Real %</th>
+                        <th>FD</th>
+                        <th>EV</th>
+                        <th>Fair</th>
+                        <th>Stake</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="team1"><span class="value">–</span></td>
+                        <td id="output1"><span class="value">–</span></td>
+                        <td id="odds1"><span class="value">–</span></td>
+                        <td id="ev1"><span class="value">–</span></td>
+                        <td id="fair1"><span class="value">–</span></td>
+                        <td id="stake1"><span class="value">–</span></td>
+                    </tr>
+                    <tr>
+                        <td id="team2"><span class="value">–</span></td>
+                        <td id="output2"><span class="value">–</span></td>
+                        <td id="odds2"><span class="value">–</span></td>
+                        <td id="ev2"><span class="value">–</span></td>
+                        <td id="fair2"><span class="value">–</span></td>
+                        <td id="stake2"><span class="value">–</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div id="pregame"></div>
+        </section>
+
+        <!-- POLLS VIEW -->
+        <section id="polls" class="view">
+            <header>
+                <h1>Polls</h1>
+            </header>
+
+            <div class="poll-card" id = "poll-card">
+            </div>
+        </section>
+
     </div>
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Team</th>
-                <th>Real %</th>
-                <th>FD Odds</th>
-                <th>EV</th>
-                <th>Fair Odds</th>
-                <th>Stake</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td id="team1">Team 1</td>
-                <td id="output1">Loading...</td>
-                <td id="odds1"></td>
-                <td id="ev1"></td>
-                <td id="fair1"></td>
-                <td id="stake1"></td>
-            </tr>
-            <tr>
-                <td id="team2">Team 2</td>
-                <td id="output2">Loading...</td>
-                <td id="odds2"></td>
-                <td id="ev2"></td>
-                <td id="fair2"></td>
-                <td id="stake2"></td>
-            </tr>
-        </tbody>
-    </table>
+<div class="footer">
+    Live odds synced in background
+</div>
 
-    <div id="pregame"></div>
-
-    <script src="popup.js"></script>
+<script src="popup.js"></script>
 </body>
 </html>
