@@ -6,6 +6,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         messageToSend = { type: "GET_REAL_TEXT" };
     }
 
+    if (request.type === "READ_REAL_POLLS") {
+        messageToSend = { type: "GET_REAL_POLLS" };
+    }
+
     if (request.type === "READ_FD_TAB") {
         messageToSend = { type: "GET_FD_TEXT" };
     }
