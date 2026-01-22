@@ -1,4 +1,7 @@
 // ================== DOM REFERENCES ==================
+const tabs = document.querySelectorAll(".tab");
+const views = document.querySelectorAll(".view");
+
 const output1 = document.getElementById("output1");
 const odds1   = document.getElementById("odds1");
 const ev1     = document.getElementById("ev1");
@@ -13,32 +16,47 @@ const team2   = document.getElementById("team2");
 const fair2   = document.getElementById("fair2");
 const stake2 = document.getElementById("stake2");
 
+const pollcard = document.getElementById("poll-card");
+
 const pregame = document.getElementById("pregame");
-const league_select = document.getElementById("league");
 const bankrollInput = document.getElementById("bankroll");
+const switchWrapper = document.querySelector(".switch-wrapper");
+const manualSwitch = document.getElementById("manual-switch");
+const leftLabel = document.querySelector(".switch-label.left");
+const rightLabel = document.querySelector(".switch-label.right");
 
 // ================== STATE ==================
 let realTextState = ["", ""];
 let fdTextState   = ["", ""];
 let realTeamNames = ["", ""];
 let lastValidTeams = ["", ""];
+let realPollState = [];
+let manualMode = false;
+let realReady = false;
+let fdReady = false;
+let pollsReady = false;
 
 // ================== STORAGE ==================
-chrome.storage.local.get(["selectedLeague"], (result) => {
-    if (result.selectedLeague) {
-        league_select.value = result.selectedLeague;
-        sendSelectionToContent(result.selectedLeague);
-    }
+chrome.storage.local.get("lastView", ({ lastView }) => {
+    switchView(lastView || "predictions", false);
 });
 
 chrome.storage.local.get(["bankroll"], (res) => {
     if (res.bankroll) bankrollInput.value = res.bankroll;
 });
 
-league_select.addEventListener("change", () => {
-    const val = league_select.value;
-    chrome.storage.local.set({ selectedLeague: val });
-    sendSelectionToContent(val);
+chrome.storage.local.get(["manualMode"], (res) => {
+    manualMode = !!res.manualMode;
+    manualSwitch.checked = manualMode;
+    updateSwitchLabels();
+    toggleManualInputs(manualMode);
+    updatePopup();
+});
+
+tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+        switchView(tab.dataset.view);
+    });
 });
 
 bankrollInput.addEventListener("input", () => {
@@ -46,6 +64,16 @@ bankrollInput.addEventListener("input", () => {
     if (!isNaN(val)) {
         chrome.storage.local.set({ bankroll: val });
     }
+});
+
+manualSwitch.addEventListener("change", () => {
+    manualMode = manualSwitch.checked;
+
+    // Save switch mode
+    chrome.storage.local.set({ manualMode: manualMode });
+    updateSwitchLabels();
+    toggleManualInputs(manualMode);
+    updatePolls();
 });
 
 const TEAM_MAP = {
@@ -112,6 +140,7 @@ const TEAM_MAP = {
     },
     "IND": {
         "Colts": "Indianapolis Colts",
+        "Indiana": "Indiana",
         "Pacers": "Indiana Pacers"
     },
     "JAX": {
@@ -126,6 +155,9 @@ const TEAM_MAP = {
     },
     "LAL": {
         "Lakers": "Los Angeles Lakers"
+    },
+    "LAR": {
+        "Rams": "Los Angeles Rams"
     },
     "LV": {
         "Raiders": "Las Vegas Raiders"
@@ -144,6 +176,9 @@ const TEAM_MAP = {
     "MIN": {
         "Vikings": "Minnesota Vikings",
         "Wolves": "Minnesota Timberwolves"
+    },
+    "MISS": {
+        "Ole Miss": "Ole Miss"
     },
     "NE": {
         "Patriots": "New England Patriots"
@@ -166,8 +201,14 @@ const TEAM_MAP = {
     "OKC": {
         "Thunder": "Oklahoma City Thunder"
     },
+    "ORE": {
+        "Oregon": "Oregon"
+    },
     "ORL": {
         "Magic": "Orlando Magic"
+    },
+    "OSU": {
+        "OSU": "Ohio State"
     },
     "OU": {
         "Oklahoma": "Oklahoma"
@@ -191,6 +232,9 @@ const TEAM_MAP = {
     "SAS": {
         "Spurs": "San Antonio Spurs"
     },
+    "SEA": {
+        "Seahawks": "Seattle Seahawks"
+    },
     "SF": {
         "49ers": "San Francisco 49ers"
     },
@@ -206,6 +250,12 @@ const TEAM_MAP = {
     "TOR": {
         "Raptors": "Toronto Raptors"
     },
+    "TTU": {
+        "TTU": "Texas Tech"
+    },
+    "UGA": {
+        "Georgia": "Georgia"
+    },
     "UTA": {
         "Jazz": "Utah Jazz"
     },
@@ -215,18 +265,70 @@ const TEAM_MAP = {
     }
 };
 
-function sendSelectionToContent(value) {
-    chrome.tabs.query({ url: "https://realsports.io/*" }, (tabs) => {
-        if (tabs?.length) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-                type: "OPTION_SELECTED",
-                value
-            });
+// ================== HELPERS ==================
+function switchView(targetId, save = true) {
+    const current = document.querySelector(".view.active");
+    const target = document.getElementById(targetId);
+
+    if (current === target) return;
+
+    // Animate exit
+    if (current) {
+        current.classList.remove("active");
+        current.classList.add(
+            targetId === "polls" ? "exit-left" : "exit-right"
+        );
+
+        setTimeout(() => {
+            current.classList.remove("exit-left", "exit-right");
+        }, 250);
+    }
+
+    // Activate target
+    target.classList.add("active");
+
+    // Update tabs
+    tabs.forEach(t => t.classList.toggle("active", t.dataset.view === targetId));
+
+    // Save state
+    if (save) {
+        chrome.storage.local.set({ lastView: targetId });
+    }
+}
+
+function updateSwitchLabels() {
+    if (manualSwitch.checked) {
+        leftLabel.style.color = "var(--muted)";
+        rightLabel.style.color = "var(--accent)";
+    } else {
+        leftLabel.style.color = "var(--accent)";
+        rightLabel.style.color = "var(--muted)";
+    }
+}
+
+function toggleManualInputs(isManual) {
+    const cells = [
+        output1, odds1, ev1, fair1, stake1,
+        output2, odds2, ev2, fair2, stake2
+    ];
+
+    cells.forEach(td => {
+        // Get current value (span or plain text)
+        let val = td.querySelector(".value")?.innerText || td.innerText || "";
+
+        if (isManual) {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = val;
+            input.classList.add("manual-input");
+            td.innerHTML = "";
+            td.appendChild(input);
+        } else {
+            td.innerHTML = `<span class="value">-</span>`;
         }
     });
 }
 
-// ================== HELPERS ==================
 function normalizeTeamName(raw, teamName) {
     return TEAM_MAP[raw]?.[teamName] ?? null;
 }
@@ -260,7 +362,6 @@ function sendTeamsToFanDuel() {
         }
     );
 }
-
 
 function isValidTeamName(str) {
     if (!str) return false;
@@ -341,9 +442,34 @@ function calculateStake(bankroll, kellyFraction) {
     return bankroll * kellyFraction;
 }
 
+function animateValue(el, className = "update") {
+    const span = el.querySelector("span");
+    if (!span) return;
+    span.classList.add(className);
+    setTimeout(() => {
+        span.classList.remove(className);
+    }, 300);
+}
+
+function animateStake(stakeEl) {
+    const span = stakeEl.querySelector(".stake-animate");
+    if (!span) return;
+
+    // Trigger animation
+    span.classList.add("update");
+
+    // Remove class after animation duration
+    setTimeout(() => {
+        span.classList.remove("update");
+    }, 300); // duration matches CSS transition
+}
+
 // ================== RENDER ==================
 function updatePopup() {
-    if (!realTextState[0] || !fdTextState[0]) return;
+    if (manualSwitch.checked || !realTextState[0]) {
+        updatePolls();
+        return;
+    }
 
     const t1 = realTextState[0]?.split("\n")[0]?.trim();
     const t2 = realTextState[1]?.split("\n")[0]?.trim();
@@ -363,7 +489,17 @@ function updatePopup() {
     odds1.innerText = fdTextState[0] || "Locked";
     odds2.innerText = fdTextState[1] || "Locked";
 
-    if (!fdOdds1 || !fdOdds2 || !realProb1 || !realProb2) return;
+    if (!fdOdds1 || !fdOdds2 || !realProb1 || !realProb2) {
+        ev1.innerText = "-";
+        ev2.innerText = "-";
+        fair1.innerText = "-";
+        fair2.innerText = "-";
+        stake1.innerText = "-";
+        stake2.innerText = "-";
+        pregame.innerText = "";
+        updatePolls();
+        return;
+    }
 
     const pFair1 = worstCaseFairProb(fdOdds1, fdOdds2, 0);
     const pFair2 = worstCaseFairProb(fdOdds1, fdOdds2, 1);
@@ -371,14 +507,11 @@ function updatePopup() {
     const evVal1 = calculateEV(pFair1, realProb1+0.01);
     const evVal2 = calculateEV(pFair2, realProb2+0.01);
 
-    ev1.innerText = `${evVal1.toFixed(1)}%`;
-    ev2.innerText = `${evVal2.toFixed(1)}%`;
+    ev1.innerHTML = `<span class="ev-animate ${evVal1 >= 0 ? "ev-positive" : "ev-negative"}">${evVal1.toFixed(1)}%</span>`;
+    ev2.innerHTML = `<span class="ev-animate ${evVal2 >= 0 ? "ev-positive" : "ev-negative"}">${evVal2.toFixed(1)}%</span>`;
 
-    ev1.className = evVal1 >= 0 ? "ev-positive" : "ev-negative";
-    ev2.className = evVal2 >= 0 ? "ev-positive" : "ev-negative";
-
-    fair1.innerText = `${impliedProbToAmerican(pFair1)} (${(pFair1 * 100).toFixed(1)}%)`;
-    fair2.innerText = `${impliedProbToAmerican(pFair2)} (${(pFair2 * 100).toFixed(1)}%)`;
+    fair1.innerHTML = `${impliedProbToAmerican(pFair1)}\n(${(pFair1 * 100).toFixed(1)}%)`;
+    fair2.innerHTML = `${impliedProbToAmerican(pFair2)}\n(${(pFair2 * 100).toFixed(1)}%)`;
 
     pregame.innerText = `pregame ev: ${team1.innerText} @ ${Math.floor(pFair1 * 100)-1}% or lower, ${team2.innerText} @ ${Math.floor(pFair2 * 100)-1}% or lower`;
 
@@ -390,8 +523,64 @@ function updatePopup() {
     const stakeVal1 = calculateStake(bankroll, kellyVal1);
     const stakeVal2 = calculateStake(bankroll, kellyVal2);
 
-    stake1.innerText = stakeVal1 > 0 ? `$${stakeVal1.toFixed(2)}` : "-";
-    stake2.innerText = stakeVal2 > 0 ? `$${stakeVal2.toFixed(2)}` : "-";
+    stake1.innerHTML = `<span class="stake-animate">${stakeVal1 > 0 ? `$${stakeVal1.toFixed(2)}` : "-"}</span>`;
+    stake2.innerHTML = `<span class="stake-animate">${stakeVal2 > 0 ? `$${stakeVal2.toFixed(2)}` : "-"}</span>`;
+
+    animateValue(ev1);
+    animateValue(ev2);
+    animateStake(stake1);
+    animateStake(stake2);
+
+    updatePolls();
+}
+
+function updatePolls() {
+    let polls = "";
+    let totalFilled = 0;
+
+    realPollState.forEach(poll => {
+        const [name, options, chosen, bets, status] = poll;
+
+        let isFilled = false;
+        const optionsHTML = options.map((opt, i) => {
+            const isChosen = chosen[i];
+            const bet = bets[i];
+            if (isChosen) isFilled = true;
+
+            return `
+                <span class="option ${isChosen ? "chosen" : ""}">
+                    <span class="option-text">${opt}</span>
+                    ${isChosen && bet !== -1 ? `<span class="bet">${bet}</span>` : ""}
+                </span>
+            `;
+        }).join("");
+
+        polls += `
+            <div class="poll">
+                <strong>${name}</strong>
+
+                <div class="poll-options">
+                    ${optionsHTML}
+                </div>
+
+                <div class="poll-status">${status}</div>
+            </div>
+        `;
+
+        if (isFilled) totalFilled += 1;
+    });
+
+    pollcard.innerHTML = polls
+    ? `
+        <div class="poll-summary">
+            <span class="summary-label">Total Polls Filled</span>
+            <span class="summary-count">
+                ${totalFilled}<span class="summary-total">/${realPollState.length}</span>
+            </span>
+        </div>
+        ${polls}
+      `
+    : "No current polls open";
 }
 
 // ================== LIVE UPDATES ==================
@@ -401,6 +590,11 @@ chrome.runtime.onMessage.addListener((message) => {
         realTeamNames = message.teamName;
         updatePopup();
         sendTeamsToFanDuel();
+    }
+
+    if (message.type ==="POLL_UPDATE") {
+        realPollState = message.text;
+        updatePopup();
     }
 
     if (message.type === "TEXT_UPDATE_FD") {
@@ -419,11 +613,24 @@ chrome.runtime.onMessage.addListener((message) => {
                 if (res?.text) {
                     realTextState = res.text;
                     realTeamNames = res.teamName;
-                    updatePopup();
+                    realReady = true;
+                    maybeRender();
                     sendTeamsToFanDuel();
                 }
             }
         );
+
+        chrome.runtime.sendMessage(
+            { type: "READ_REAL_POLLS", tabId: rTabs[0].id },
+            (res) => {
+                if (res?.text) {
+                    realPollState = res.text;
+                    pollsReady = true;
+                    maybeRender();
+                }
+            }
+        );
+
         chrome.tabs.sendMessage(rTabs[0].id, { type: "START_OBSERVING" });
     }
 
@@ -434,7 +641,8 @@ chrome.runtime.onMessage.addListener((message) => {
             (res) => {
                 if (res?.text) {
                     fdTextState = res.text;
-                    updatePopup();
+                    fdReady = true;
+                    maybeRender();
                 }
             }
         );
@@ -443,3 +651,16 @@ chrome.runtime.onMessage.addListener((message) => {
         });
     }
 })();
+
+function maybeRender() {
+    if (!realReady || !fdReady || !pollsReady) return;
+    updatePopup();
+}
+
+switchWrapper.classList.add("no-transition");
+
+window.addEventListener("load", () => {
+    setTimeout(() => {
+        switchWrapper.classList.remove("no-transition");
+    }, 100);  
+});
