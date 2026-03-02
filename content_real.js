@@ -2,10 +2,63 @@ let observer = null;
 
 // Extract text from all containers with .r-adyw6z
 function extractText() {
+    const tabs = document.querySelectorAll("div.r-rjixqe");
+    let markets = false;
+    let marketColor;
+    const colorDict = {};
+
+    tabs.forEach (tab => {
+        const tabText = tab.innerText.trim();
+        if (tabText === "Markets") {
+            if (tab.style.color) {
+                marketColor = tab.style.color;
+                if (colorDict[marketColor]) {
+                    colorDict[marketColor] += 1;
+                } else {
+                    colorDict[marketColor] = 1
+                }
+            }
+        }
+        if (tabText === "Feed" || tabText === "Game") {
+            if (tab.style.color) {
+                const curColor = tab.style.color;
+                if (colorDict[curColor]) {
+                    colorDict[curColor] += 1;
+                } else {
+                    colorDict[curColor] = 1
+                }
+            }
+        }
+    })
+
+    if (colorDict[marketColor] === 1) {
+        markets = true;
+    }
+
+    const ufcTabs = document.querySelectorAll("div.r-633pao");
+    let ufc = false;
+    ufcTabs.forEach (tab => {
+        const tabText = tab.innerText.trim();
+        if (tabText === "Fight") ufc = true;     
+    });
+
+
+    let total = false, spread = false;
+    const marketTabs = document.querySelectorAll("div.r-1i10wst");
+    marketTabs.forEach (tab => {
+        const tabText = tab.innerText.trim();
+        if (tabText === "Total") total = true;
+        if (tabText === "Spread") spread = true;     
+    });
+
     const rDivs = document.querySelectorAll("div.r-adyw6z");
 
     // Pair each rDiv with its previous sibling div
     const result = [];
+    let totalSelected = 0;
+    let maxSelected = 2;
+    if (total) maxSelected += 2;
+    if (spread) maxSelected += 2;
 
     rDivs.forEach(rDiv => {
         const wrapper = rDiv.parentElement;                  // wrapper div around rDiv
@@ -13,13 +66,19 @@ function extractText() {
         const prevText = prevDiv ? prevDiv.innerText.trim() : "";
         const rText = rDiv.innerText.trim();
 
-        if (rText.endsWith("%")) {                          // filter by text ending with %
+        if (rText.endsWith("%") && totalSelected < maxSelected) {                          // filter by text ending with %
             result.push(prevText + "\n" + rText);
+            totalSelected += 1;
         }
     });
 
-    // Return first two pairs for popup columns
-    return [result[0] || "", result[1] || ""];
+    if (total && spread) {
+        return [[result[0] || "", result[1] || "", result[4] || "", result[5] || "", result[2] || "", result[3] || ""], ufc];
+    }
+    if (total) {
+        return [[result[0] || "", result[1] || "", result[2] || "", result[3] || ""], ufc];
+    }
+    return [[result[0] || "", result[1] || ""], ufc];
 }
 
 function isStrictNumberString(str) {
@@ -33,7 +92,7 @@ function extractTeamName() {
     rDivs.forEach(rDiv => {
         const rTeamName = rDiv.innerText.trim();
 
-        if (!rTeamName.includes("-") && !isStrictNumberString(rTeamName)) {
+        if ((!rTeamName.includes("-") || rTeamName.length > 9) && !isStrictNumberString(rTeamName)) {
             result.push(rTeamName);
         }
     })
@@ -84,7 +143,6 @@ function extractPolls() {
 
                 if (choice.style.backgroundColor) {
                     chosen.push(true);
-                    console.log(choice);
                     if (choice.children.length < 2) {
                         bets.push(0);
                     } else {
@@ -112,14 +170,15 @@ function startObserving() {
     let lastSerialized = "";
 
     const sendUpdate = () => {
-        const text = extractText();
+        const [text, ufc] = extractText();
+
         const teamName = extractTeamName();
         const pollList = extractPolls();
         const serialized = JSON.stringify({ text, teamName, pollList });
         if (serialized !== lastSerialized) {
             lastSerialized = serialized;
             chrome.runtime.sendMessage({ type: "POLL_UPDATE", text: pollList});
-            chrome.runtime.sendMessage({ type: "TEXT_UPDATE_REAL", text: text, teamName: teamName });
+            chrome.runtime.sendMessage({ type: "TEXT_UPDATE_REAL", text: text, teamName: teamName, ufc: ufc });
         }
     };
 
@@ -140,9 +199,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "START_OBSERVING") {
         startObserving();
     } else if (request.type === "GET_REAL_TEXT") {
-        const text = extractText();
+        const [text, ufc] = extractText();
         const teamName = extractTeamName();
-        sendResponse({ text: text, teamName: teamName });
+        sendResponse({ text: text, teamName: teamName, ufc: ufc });
     } else if (request.type === "GET_REAL_POLLS") {
         const pollList = extractPolls();
         sendResponse({ text: pollList });
