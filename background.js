@@ -43,7 +43,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         sendResponse({
             text: response.text,
-            teamName: response.teamName || []
+            teamName: response.teamName || [],
+            ufc: response.ufc || false
         });
     });
 
